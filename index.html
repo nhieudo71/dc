@@ -529,6 +529,7 @@ tr:hover td{background:var(--rhov)}
         <div class="ni active" id="nav-list" onclick="sp('list');csb()"><span class="ic">👥</span>Danh sách dân cư<span class="nbadge" id="nb-t">0</span></div>
         <div class="ni" id="nav-group" onclick="sp('group');csb()"><span class="ic">🏠</span>Theo hộ gia đình<span class="nbadge" id="nb-g">0</span></div>
         <div class="ni" id="nav-bhyt" onclick="sp('bhyt');csb()"><span class="ic">🏥</span>Danh sách BHYT<span class="nbadge" id="nb-bh">0</span></div>
+        <div class="ni" id="nav-cutru" onclick="sp('cutru');csb()"><span class="ic">🧾</span>Cư trú (TT/Tạm trú)<span class="nbadge" id="nb-ct">0</span></div>
         <div class="ni" id="nav-stats" onclick="sp('stats');csb()"><span class="ic">📊</span>Thống kê</div>
       </div>
       <div class="nav-sec">
@@ -566,6 +567,7 @@ tr:hover td{background:var(--rhov)}
         <div class="bn active" id="bn-list" onclick="sp('list')"><div class="bnico">👥</div>Danh sách</div>
         <div class="bn" id="bn-group" onclick="sp('group')"><div class="bnico">🏠</div>Hộ GĐ</div>
         <div class="bn" id="bn-bhyt" onclick="sp('bhyt')"><div class="bnico">🏥</div>BHYT</div>
+        <div class="bn" id="bn-cutru" onclick="sp('cutru')"><div class="bnico">🧾</div>Cư trú</div>
         <div class="bn" id="bn-stats" onclick="sp('stats')"><div class="bnico">📊</div>Thống kê</div>
         <div class="bn" id="bn-settings" onclick="sp('settings')"><div class="bnico">⚙️</div>Cài đặt</div>
       </div>
@@ -822,6 +824,7 @@ function restoreTrashRec(recId){
   const i=TRASH.findIndex(t=>t.rec&&t.rec._id===recId); if(i===-1)return;
   const t=TRASH[i];
   if(t.type==='R'){ if(!R.some(x=>x._id===t.rec._id)) R.push(t.rec); sv(); }
+  else if(t.type==='CT'){ if(!CUTRU.some(x=>x._id===t.rec._id)) CUTRU.push(t.rec); saveCutru(); }
   else { if(!BHYT_LIST.some(x=>x._id===t.rec._id)) BHYT_LIST.push(t.rec); saveBhyt(); }
   TRASH.splice(i,1); saveTrash(); logAct('Khôi phục', t.rec.hoTen||t.rec.maThe||recId);
   rP(); _renderTrash(); T('Đã khôi phục','success');
@@ -843,13 +846,15 @@ function _renderTrash(){
   const b=document.getElementById('trash-body'); if(!b)return;
   if(!TRASH.length){ b.innerHTML=`<div class="empty"><div class="ei">🗑️</div><div class="et">Thùng rác trống</div></div>`; return; }
   b.innerHTML=TRASH.map(t=>{
-    const r=t.rec||{}, isR=t.type==='R';
+    const r=t.rec||{}, isR=t.type==='R', isCT=t.type==='CT';
     const name=H(r.hoTen||(isR?(r.maHo||''):(r.maThe||''))||'(không tên)');
+    const typeLbl=isR?'Dân cư':isCT?'Cư trú':'BHYT';
+    const typeCls=isR?'bb':isCT?'be':'bp';
     return `<div class="rcard" style="margin-bottom:10px">
       <div class="rc-top">
-        <div class="rc-av ${gClass(isR?r.gioiTinh:r.gt)}">${H(initials(r.hoTen||r.maThe||'?'))}</div>
+        <div class="rc-av ${gClass(r.gioiTinh||r.gt)}">${H(initials(r.hoTen||r.maThe||'?'))}</div>
         <div class="rc-main">
-          <div class="rc-name" style="cursor:default">${name} <span class="badge ${isR?'bb':'bp'}" style="margin-left:4px">${isR?'Dân cư':'BHYT'}</span></div>
+          <div class="rc-name" style="cursor:default">${name} <span class="badge ${typeCls}" style="margin-left:4px">${typeLbl}</span></div>
           <div class="rc-sub">
             ${r.ngaySinh?`<span class="rc-kv"><span class="k">🎂</span>${H(r.ngaySinh)}</span>`:''}
             ${(r.soCMND||r.cccd)?`<span class="rc-kv"><span class="k">🆔</span><span class="mono">${H(r.soCMND||r.cccd)}</span></span>`:''}
@@ -903,11 +908,12 @@ const FM=[
 // ============================================================ COLUMN RESOLVER (smart import)
 function norm(s){
   return String(s||'').toLowerCase()
-    .replace(/[àáâãăắặằẩẫạảấậẻẽẹềếệểễìíîïịỉĩòóôõọỏốồổỗộớờởỡợùúûụủũứừửữựỳýỷỹỵđ]/g,c=>(
-      {à:'a',á:'a',â:'a',ã:'a',ă:'a',ắ:'a',ặ:'a',ằ:'a',ẩ:'a',ẫ:'a',ạ:'a',ả:'a',ấ:'a',ậ:'a',
-       ẻ:'e',ẽ:'e',ẹ:'e',ề:'e',ế:'e',ệ:'e',ể:'e',ễ:'e',ì:'i',í:'i',î:'i',ï:'i',ị:'i',ỉ:'i',ĩ:'i',
-       ò:'o',ó:'o',ô:'o',õ:'o',ọ:'o',ỏ:'o',ố:'o',ồ:'o',ổ:'o',ỗ:'o',ộ:'o',ớ:'o',ờ:'o',ở:'o',ỡ:'o',ợ:'o',
-       ù:'u',ú:'u',û:'u',ụ:'u',ủ:'u',ũ:'u',ứ:'u',ừ:'u',ử:'u',ữ:'u',ự:'u',
+    .replace(/[àáâãăằắẳẵặầấẩẫậạảẹẻẽèéêềếểễệìíîïịỉĩòóôõọỏốồổỗộơớờởỡợùúûụủũưứừửữựỳýỷỹỵđ]/g,c=>(
+      {à:'a',á:'a',â:'a',ã:'a',ă:'a',ằ:'a',ắ:'a',ẳ:'a',ẵ:'a',ặ:'a',ầ:'a',ấ:'a',ẩ:'a',ẫ:'a',ậ:'a',ạ:'a',ả:'a',
+       ẹ:'e',ẻ:'e',ẽ:'e',è:'e',é:'e',ê:'e',ề:'e',ế:'e',ể:'e',ễ:'e',ệ:'e',
+       ì:'i',í:'i',î:'i',ï:'i',ị:'i',ỉ:'i',ĩ:'i',
+       ò:'o',ó:'o',ô:'o',õ:'o',ọ:'o',ỏ:'o',ố:'o',ồ:'o',ổ:'o',ỗ:'o',ộ:'o',ơ:'o',ớ:'o',ờ:'o',ở:'o',ỡ:'o',ợ:'o',
+       ù:'u',ú:'u',û:'u',ụ:'u',ủ:'u',ũ:'u',ư:'u',ứ:'u',ừ:'u',ử:'u',ữ:'u',ự:'u',
        ỳ:'y',ý:'y',ỷ:'y',ỹ:'y',ỵ:'y',đ:'d'}[c]||c))
     .replace(/\s+/g,' ').trim();
 }
@@ -949,6 +955,41 @@ function resolveCol(col){
 // Dedup key
 function dkey(r){return norm(r.hoTen||'')+'|'+norm(r.soCMND||'')}
 
+// ============================================================ ĐỌC SHEET THÔNG MINH
+// Tự tìm dòng tiêu đề thật trong 15 dòng đầu (file thực tế thường có dòng tiêu đề
+// báo cáo "DANH SÁCH..." phía trên, khiến dòng 1 không phải tên cột).
+// resolver: hàm nhận tên cột → key (hoặc null). Dòng có nhiều cột nhận diện được nhất là dòng tiêu đề.
+function sheetToObjects(ws,resolver){
+  const aoa=XLSX.utils.sheet_to_json(ws,{header:1,defval:'',raw:false});
+  if(!aoa.length) return [];
+  let hIdx=0,bestHits=0;
+  const lim=Math.min(aoa.length,15);
+  for(let i=0;i<lim;i++){
+    const hits=(aoa[i]||[]).reduce((s,c)=>{
+      const t=String(c||'').trim();
+      return s+(t&&resolver(t)?1:0);
+    },0);
+    if(hits>bestHits){bestHits=hits;hIdx=i;}
+  }
+  // đặt tên cột (cột trống → "Cột N", trùng tên → thêm hậu tố) rồi dựng object cho từng dòng dữ liệu
+  const seen={};
+  const hdr=(aoa[hIdx]||[]).map((c,i)=>{
+    let h=String(c||'').trim()||('Cột '+(i+1));
+    if(seen[h]===undefined){seen[h]=0;}
+    else{seen[h]++;h=h+'_'+seen[h];}
+    return h;
+  });
+  const rows=[];
+  for(let i=hIdx+1;i<aoa.length;i++){
+    const arr=aoa[i]||[];
+    if(!arr.some(c=>String(c||'').trim())) continue;   // bỏ dòng trống
+    const o={};
+    hdr.forEach((h,j)=>{o[h]=String(arr[j]??'').trim();});
+    rows.push(o);
+  }
+  return rows;
+}
+
 // ============================================================ FILTER
 function gF(){
   let d=R.slice();
@@ -970,12 +1011,12 @@ function gF(){
 function hasF(){return sq||Object.values(F).some(v=>v)}
 
 // ============================================================ PAGES
-const PTITLES={list:'Danh sách dân cư',group:'Theo hộ gia đình',bhyt:'Danh sách BHYT',stats:'Thống kê tổng hợp',settings:'Cài đặt'};
+const PTITLES={list:'Danh sách dân cư',group:'Theo hộ gia đình',bhyt:'Danh sách BHYT',cutru:'Cư trú (Thường trú / Tạm trú)',stats:'Thống kê tổng hợp',settings:'Cài đặt'};
 function sp(name){
   const mc = document.getElementById('mc');
-  if (cv !== name) mc.innerHTML = '';
+  if (cv !== name) { mc.innerHTML = ''; sq = ''; }   // reset tìm kiếm khi đổi trang (ô search được build lại rỗng)
   cv=name;cpg=1;
-  ['list','group','bhyt','stats','settings'].forEach(p=>{
+  ['list','group','bhyt','cutru','stats','settings'].forEach(p=>{
     document.getElementById('nav-'+p)?.classList.toggle('active',p===name);
     document.getElementById('bn-'+p)?.classList.toggle('active',p===name);
   });
@@ -993,6 +1034,7 @@ function rP(){
     if(!document.getElementById('grp-content-wrap')) document.getElementById('mc').innerHTML='';
     rGroup();
   } else if(cv==='bhyt') rBhyt();
+  else if(cv==='cutru') rCutru();
   else if(cv==='stats') rStats();
   else if(cv==='settings') rSettings();
 }
@@ -1646,7 +1688,7 @@ function procBhytPage(file){
     try{
       const wb=XLSX.read(e.target.result,{type:'binary'});
       const ws=wb.Sheets[wb.SheetNames[0]];
-      const rows=XLSX.utils.sheet_to_json(ws,{defval:'',raw:false});
+      const rows=sheetToObjects(ws,resolveBhytPageCol);
       if(!rows.length){T('File không có dữ liệu','error');return}
 
       const allCols=Object.keys(rows[0]);
@@ -1702,7 +1744,7 @@ function procBhytPage(file){
       saveBhyt();cm('mi-bhyt-page');rP();
 
       // Show result with column mapping info
-      const noHoTen=BHYT_LIST.slice(-added).filter(r=>!r.hoTen).length;
+      const noHoTen=added?BHYT_LIST.slice(-added).filter(r=>!r.hoTen).length:0;
       let msg=`✅ Đã nhập ${added} thẻ BHYT`;
       if(duped) msg+=` · ${duped} trùng`;
       if(skipped) msg+=` · ${skipped} rỗng`;
@@ -1788,6 +1830,289 @@ function expBhyt(){
   T('Đã xuất Excel BHYT','success');
 }
 
+// ============================================================ CƯ TRÚ (Thường trú / Tạm trú / Nơi ở hiện tại)
+const CUTRU_SK='dancu_cutru_v1';
+let CUTRU=[];        // [{_id, tt, hoTen, ngaySinh, gioiTinh, soCMND, danToc, thuongTru, tamTru, noiOHienTai, ngayGhi, ngayCapNhat}]
+let ctSq='';
+let ctPage=1;
+const CT_PG=50;
+let ctEditId=null;
+
+function saveCutru(){ _persist(CUTRU_SK,()=>CUTRU); }
+function loadCutru(){ try{const d=localStorage.getItem(CUTRU_SK);const o=d?JSON.parse(d):[];CUTRU=Array.isArray(o)?o:[]}catch(e){CUTRU=[]} }
+
+const CT_FIELDS=['tt','hoTen','ngaySinh','gioiTinh','soCMND','danToc','thuongTru','tamTru','noiOHienTai'];
+const CT_LABELS={tt:'STT',hoTen:'Họ tên',ngaySinh:'Ngày sinh',gioiTinh:'Giới tính',soCMND:'Số CMND/CCCD',danToc:'Dân tộc',thuongTru:'Thường trú',tamTru:'Tạm trú',noiOHienTai:'Nơi ở hiện tại'};
+
+function rCutru(){
+  const mc=document.getElementById('mc');
+  if(!mc.querySelector('#ct-table-wrap')) _buildCutruShell();
+  else _syncCutruFilters();
+  _renderCutruTable();
+}
+
+function _buildCutruShell(){
+  document.getElementById('mc').innerHTML=`
+<div class="stats-row" id="ct-stats"></div>
+<div class="sbar" id="ct-sbar">
+  <div class="sw" style="min-width:200px"><span class="si">🔍</span>
+    <input class="sinp" id="ct-srch" placeholder="Tìm họ tên, CCCD, dân tộc, địa chỉ..." autocomplete="off">
+  </div>
+  <span id="ct-clr-wrap"></span>
+</div>
+<div id="ct-table-wrap"></div>`;
+
+  document.getElementById('ct-srch').addEventListener('input', function(){
+    ctSq=this.value; ctPage=1; _renderCutruTable();
+  });
+  _syncCutruFilters();
+}
+
+function _syncCutruFilters(){
+  const cw=document.getElementById('ct-clr-wrap');
+  if(cw) cw.innerHTML=ctSq?`<button class="btn btn-s sm" onclick="ctSq='';const i=document.getElementById('ct-srch');if(i){i.value='';i.focus()};_renderCutruTable()">✕ Bỏ lọc</button>`:'';
+}
+
+function _getCutruFiltered(){
+  if(!ctSq) return CUTRU.slice();
+  const q=norm(ctSq);
+  return CUTRU.filter(r=>Object.values(r).some(v=>v&&typeof v==='string'&&norm(v).includes(q)));
+}
+
+function _renderCutruTable(){
+  const filt=_getCutruFiltered();
+  const tot=Math.max(1,Math.ceil(filt.length/CT_PG));
+  ctPage=Math.min(ctPage,tot);
+  const pg=filt.slice((ctPage-1)*CT_PG, ctPage*CT_PG);
+
+  const nam=CUTRU.filter(r=>r.gioiTinh==='Nam').length, nu=CUTRU.filter(r=>r.gioiTinh==='Nữ').length;
+  const tam=CUTRU.filter(r=>(r.tamTru||'').trim()).length;
+  const coCC=CUTRU.filter(r=>(r.soCMND||'').trim()).length;
+  const statsEl=document.getElementById('ct-stats');
+  if(statsEl) statsEl.innerHTML=
+    s('🧾','Tổng số',CUTRU.length,'bản ghi','var(--ac)')+
+    s('🧑','Nam',nam,pct(nam,CUTRU.length),'var(--ac2)')+
+    s('👩','Nữ',nu,pct(nu,CUTRU.length),'var(--pk)')+
+    s('🏡','Có tạm trú',tam,pct(tam,CUTRU.length),'var(--ac3)')+
+    s('🆔','Có CCCD',coCC,pct(coCC,CUTRU.length),'var(--ok)');
+
+  _syncCutruFilters();
+
+  const wrap=document.getElementById('ct-table-wrap');
+  if(!wrap) return;
+  wrap.innerHTML=`
+<div class="lcount">
+  <span class="tcnt">Hiển thị ${pg.length}/${filt.length} bản ghi</span>
+  <button class="btn btn-ok sm" onclick="om('mi-ct')">📂 Nhập</button>
+  <button class="btn btn-s sm" onclick="expCutru()">⬇️ Xuất</button>
+  <button class="btn btn-p sm" onclick="openAddCutru()">＋ Thêm</button>
+  ${CUTRU.length?`<button class="btn btn-d sm" onclick="delAllCutru()">🗑 Xóa tất cả</button>`:''}
+</div>
+${pg.length===0
+  ?`<div class="empty"><div class="ei">🧾</div><div class="et">Chưa có dữ liệu cư trú</div>
+     <div style="margin-top:14px;display:flex;gap:8px;justify-content:center;flex-wrap:wrap">
+       <button class="btn btn-p sm" onclick="openAddCutru()">＋ Thêm bản ghi</button>
+       <button class="btn btn-ok sm" onclick="om('mi-ct')">📂 Nhập file Excel</button>
+     </div></div>`
+  :`<div class="rgrid">${pg.map(r=>ctCard(r)).join('')}</div>`}
+${tot>1?pagerCutru(ctPage,tot):''}`;
+}
+
+function pagerCutru(cur,tot){
+  const ps=[];
+  for(let i=1;i<=tot;i++){if(i===1||i===tot||Math.abs(i-cur)<=1)ps.push(i);else if(ps[ps.length-1]!=='...')ps.push('...')}
+  return `<div class="pager">
+    <button class="pgb" onclick="ctPage=${cur-1};_renderCutruTable()" ${cur<=1?'disabled':''}>‹</button>
+    ${ps.map(p=>p==='...'?`<button class="pgb" disabled>…</button>`:`<button class="pgb ${p===cur?'active':''}" onclick="ctPage=${p};_renderCutruTable()">${p}</button>`).join('')}
+    <button class="pgb" onclick="ctPage=${cur+1};_renderCutruTable()" ${cur>=tot?'disabled':''}>›</button>
+  </div>`;
+}
+
+function ctCard(r){
+  const g=gClass(r.gioiTinh);
+  const gLabel=r.gioiTinh==='Nam'?'<span class="badge bm">♂ Nam</span>':r.gioiTinh==='Nữ'?'<span class="badge bf">♀ Nữ</span>':'';
+  const dt=r.danToc?`<span class="badge bd">${H(r.danToc)}</span>`:'';
+  const tam=(r.tamTru||'').trim()?'<span class="badge bp">🏡 Tạm trú</span>':'';
+  const chips=gLabel+dt+tam;
+  const lbl=t=>`<b style="color:var(--text3);font-weight:700;font-size:10.5px">${t}:</b>`;
+  return `<div class="rcard">
+    <div class="rc-top">
+      <div class="rc-av ${g}">${H(initials(r.hoTen))}</div>
+      <div class="rc-main">
+        <div style="display:flex;align-items:flex-start;gap:8px;justify-content:space-between">
+          <div class="rc-name" onclick="viewCutru('${r._id}')">${H(r.hoTen||'(Chưa có tên)')}</div>
+          ${r.tt?`<span class="rc-no">#${H(r.tt)}</span>`:''}
+        </div>
+        <div class="rc-sub">
+          ${r.ngaySinh?`<span class="rc-kv"><span class="k">🎂</span>${H(r.ngaySinh)}</span>`:''}
+          ${r.soCMND?`<span class="rc-kv"><span class="k">🆔</span><span class="mono">${H(r.soCMND)}</span></span>`:''}
+        </div>
+      </div>
+    </div>
+    ${r.thuongTru?`<div class="rc-addr"><span class="pin">📍</span><span>${lbl('Thường trú')} ${H(r.thuongTru)}</span></div>`:''}
+    ${r.tamTru?`<div class="rc-addr"><span class="pin">🏡</span><span>${lbl('Tạm trú')} ${H(r.tamTru)}</span></div>`:''}
+    ${r.noiOHienTai?`<div class="rc-addr"><span class="pin">🏠</span><span>${lbl('Hiện tại')} ${H(r.noiOHienTai)}</span></div>`:''}
+    ${chips?`<div class="rc-chips">${chips}</div>`:''}
+    <div class="rc-acts">
+      <button class="btn btn-s sm" onclick="viewCutru('${r._id}')">👁 Xem</button>
+      <button class="btn btn-s sm" onclick="openEditCutru('${r._id}')">✏️ Sửa</button>
+      <button class="btn btn-d sm" onclick="delCutru('${r._id}')">🗑 Xóa</button>
+    </div>
+  </div>`;
+}
+
+// ---- CRUD cư trú
+function openAddCutru(){ ctEditId=null; _openCutruForm({}) }
+function openEditCutru(id){ const r=CUTRU.find(x=>x._id===id); if(r){ctEditId=id;_openCutruForm(r);} }
+function _openCutruForm(r){
+  document.getElementById('ct-form-title').textContent=ctEditId?('Sửa: '+(r.hoTen||'')):'Thêm bản ghi cư trú';
+  const f=document.getElementById('ct-form'); f.reset();
+  CT_FIELDS.forEach(k=>{ if(f[k]) f[k].value=r[k]||''; });
+  om('m-ct-form');
+}
+function saveCutruRecord(){
+  const f=document.getElementById('ct-form');
+  if(!f.hoTen.value.trim()){T('Vui lòng nhập Họ tên','error');return}
+  const now=new Date().toLocaleDateString('vi');
+  const data={};
+  CT_FIELDS.forEach(k=>{ data[k]=(f[k]?.value||'').trim(); });
+  data.ngayCapNhat=now;
+  if(ctEditId){
+    const i=CUTRU.findIndex(x=>x._id===ctEditId);
+    if(i!==-1) CUTRU[i]={...CUTRU[i],...data};
+    T('Đã cập nhật: '+data.hoTen,'success');logAct('Sửa cư trú',data.hoTen);
+  } else {
+    if(!data.tt) data.tt=String(CUTRU.length+1);
+    CUTRU.push({...data,_id:gId(),ngayGhi:now});
+    T('Đã thêm: '+data.hoTen,'success');logAct('Thêm cư trú',data.hoTen);
+  }
+  saveCutru();cm('m-ct-form');rP();
+}
+function delCutru(id){
+  const r=CUTRU.find(x=>x._id===id); if(!r)return;
+  CUTRU=CUTRU.filter(x=>x._id!==id);
+  TRASH.unshift({type:'CT',rec:r,deletedAt:Date.now()});
+  saveCutru();saveTrash();logAct('Xóa cư trú', r.hoTen||id);
+  cm('m-ct-det');rP();
+  Tundo('Đã chuyển vào thùng rác: '+(r.hoTen||''), ()=>restoreTrashRec(r._id));
+}
+function delAllCutru(){
+  if(!CUTRU.length){T('Không có dữ liệu','warning');return}
+  if(!confirm(`Xóa toàn bộ ${CUTRU.length} bản ghi cư trú?\nHành động này không thể hoàn tác!`))return;
+  logAct('Xóa toàn bộ cư trú', CUTRU.length+' bản ghi');
+  CUTRU=[];saveCutru();rP();T('Đã xóa toàn bộ danh sách cư trú','warning');
+}
+function viewCutru(id){
+  const r=CUTRU.find(x=>x._id===id); if(!r)return;
+  document.getElementById('ct-det-title').textContent=r.hoTen||'Chi tiết cư trú';
+  document.getElementById('ct-det-body').innerHTML=`
+    <div class="det-sec">
+      <div class="dst">Thông tin cư trú</div>
+      <div class="det-grid">
+        ${CT_FIELDS.concat(['ngayGhi','ngayCapNhat']).map(k=>{
+          const lbl=CT_LABELS[k]||(k==='ngayGhi'?'Ngày ghi':'Ngày cập nhật');
+          return `<div class="di"><div class="dk">${lbl}</div><div class="dv">${H(r[k]||'—')}</div></div>`;
+        }).join('')}
+      </div>
+    </div>`;
+  document.getElementById('ct-det-edit').onclick=()=>{cm('m-ct-det');openEditCutru(id);};
+  document.getElementById('ct-det-del').onclick=()=>{delCutru(id);};
+  om('m-ct-det');
+}
+
+// ---- Nhập Excel cư trú (nhận diện cột thông minh)
+const CT_COL={
+  'stt':'tt','tt':'tt','so thu tu':'tt','thu tu':'tt',
+  'ho ten':'hoTen','ho va ten':'hoTen','hoten':'hoTen','ten':'hoTen','full name':'hoTen','name':'hoTen',
+  'ngay sinh':'ngaySinh','ngaysinh':'ngaySinh','nam sinh':'ngaySinh','ns':'ngaySinh','dob':'ngaySinh',
+  'gioi tinh':'gioiTinh','gt':'gioiTinh','phai':'gioiTinh','gender':'gioiTinh',
+  'so cmnd/cccd':'soCMND','so cccd/cmnd':'soCMND','cmnd/cccd':'soCMND','cccd/cmnd':'soCMND',
+  'so cmnd':'soCMND','so cccd':'soCMND','cmnd':'soCMND','cccd':'soCMND','can cuoc':'soCMND','so giay to':'soCMND',
+  'dan toc':'danToc','dantoc':'danToc',
+  'thuong tru':'thuongTru','noi thuong tru':'thuongTru','dia chi thuong tru':'thuongTru',
+  'ho khau thuong tru':'thuongTru','noi dang ky thuong tru':'thuongTru','dang ky thuong tru':'thuongTru',
+  'tam tru':'tamTru','noi tam tru':'tamTru','dia chi tam tru':'tamTru','dang ky tam tru':'tamTru',
+  'noi o hien tai':'noiOHienTai','noi o hien nay':'noiOHienTai','cho o hien tai':'noiOHienTai',
+  'cho o hien nay':'noiOHienTai','dia chi hien tai':'noiOHienTai','noi o':'noiOHienTai'
+};
+function resolveCtCol(col){
+  const n=norm(col);
+  if(!n) return null;
+  if(CT_COL[n]) return CT_COL[n];
+  // so khớp một phần (ưu tiên khóa dài trước để "tạm trú" không bị nhầm sang khóa ngắn)
+  const keys=Object.keys(CT_COL).sort((a,b)=>b.length-a.length);
+  for(const k of keys){ if(k.length>=3&&(n.includes(k)||k.includes(n))) return CT_COL[k]; }
+  return null;
+}
+function procCutru(file){
+  if(!_xlsxReady())return;
+  const reader=new FileReader();
+  reader.onload=e=>{
+    try{
+      const wb=XLSX.read(e.target.result,{type:'binary'});
+      const ws=wb.Sheets[wb.SheetNames[0]];
+      const rows=sheetToObjects(ws,resolveCtCol);
+      if(!rows.length){T('File không có dữ liệu','error');return}
+
+      const allCols=Object.keys(rows[0]);
+      const cMap={};
+      allCols.forEach(col=>{const k=resolveCtCol(col);if(k)cMap[col]=k;});
+      const unmapped=allCols.filter(c=>!cMap[c]);
+
+      const now=new Date().toLocaleDateString('vi');
+      const exKeys=new Set(CUTRU.map(r=>norm(r.hoTen||'')+'|'+norm(r.soCMND||'')));
+      let added=0,duped=0,skipped=0;
+
+      rows.forEach((row,ri)=>{
+        const obj={_id:gId(),ngayGhi:now,ngayCapNhat:now};
+        Object.entries(row).forEach(([col,val])=>{const k=cMap[col];if(k)obj[k]=String(val??'').trim()});
+        if(!obj.tt) obj.tt=String(ri+1);
+        if(!(obj.hoTen||'').trim()&&!(obj.soCMND||'').trim()){skipped++;return}
+        const key=norm(obj.hoTen||'')+'|'+norm(obj.soCMND||'');
+        if(exKeys.has(key)){duped++;return}
+        exKeys.add(key);CUTRU.push(obj);added++;
+      });
+
+      saveCutru();rP();logAct('Nhập Excel cư trú', added+' bản ghi');
+
+      document.getElementById('ir-ct').innerHTML=`
+        <div class="ir">
+          <div style="font-weight:700;margin-bottom:7px;font-size:13px">📋 Kết quả nhập</div>
+          <div class="irr"><span class="irl">Cột nhận diện được</span><span class="irv">${allCols.length-unmapped.length}/${allCols.length}</span></div>
+          ${unmapped.length?`<div class="irr"><span class="irl">Cột không nhận diện</span><span class="irv irs">${unmapped.slice(0,4).map(H).join(', ')}${unmapped.length>4?'...':''}</span></div>`:''}
+          <div class="irr"><span class="irl">✅ Thêm mới</span><span class="irv ira">${added}</span></div>
+          ${duped?`<div class="irr"><span class="irl">⚠️ Trùng — bỏ qua</span><span class="irv ird">${duped}</span></div>`:''}
+          ${skipped?`<div class="irr"><span class="irl">⛔ Rỗng bỏ qua</span><span class="irv irs">${skipped}</span></div>`:''}
+        </div>`;
+      T(`Đã nhập ${added} bản ghi cư trú`,'success');
+    }catch(err){T('Lỗi đọc file: '+err.message,'error');console.error(err)}
+  };
+  reader.readAsBinaryString(file);
+}
+
+// ---- Xuất Excel & template cư trú
+function expCutru(){
+  if(!_xlsxReady())return;
+  if(!CUTRU.length){T('Không có dữ liệu','warning');return}
+  const data=_getCutruFiltered().map((r,i)=>({
+    'STT':r.tt||i+1,'Họ tên':r.hoTen||'','Ngày sinh':r.ngaySinh||'','Giới tính':r.gioiTinh||'',
+    'Số CMND/CCCD':r.soCMND||'','Dân tộc':r.danToc||'','Thường trú':r.thuongTru||'',
+    'Tạm trú':r.tamTru||'','Nơi ở hiện tại':r.noiOHienTai||''
+  }));
+  const ws=XLSX.utils.json_to_sheet(data);
+  const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'Cư trú');
+  XLSX.writeFile(wb,`CuTru_${new Date().toLocaleDateString('vi').replace(/\//g,'-')}.xlsx`);
+  T('Đã xuất Excel cư trú','success');
+}
+function dlTplCutru(){
+  if(!_xlsxReady())return;
+  const h=['STT','Họ tên','Ngày sinh','Giới tính','Số CMND/CCCD','Dân tộc','Thường trú','Tạm trú','Nơi ở hiện tại'];
+  const ex=['1','Nguyễn Văn A','01/01/1990','Nam','079123456789','Kinh','Ấp 1, Xã Phú An','','Ấp 1, Xã Phú An'];
+  const ws=XLSX.utils.aoa_to_sheet([h,ex]);
+  const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'Mẫu cư trú');
+  XLSX.writeFile(wb,'Template_CuTru.xlsx');T('Đã tải template cư trú','success');
+}
+
 // ============================================================ STATS
 function rStats(){
   const d=R,t=d.length;
@@ -1834,7 +2159,7 @@ function br2(lbl,val,total,c){
 // ============================================================ SETTINGS
 function rSettings(){
   const dk=document.documentElement.getAttribute('data-theme')==='dark';
-  const sz=Math.round((JSON.stringify(R).length+JSON.stringify(BHYT_LIST).length)/1024);
+  const sz=Math.round((JSON.stringify(R).length+JSON.stringify(BHYT_LIST).length+JSON.stringify(CUTRU).length)/1024);
   const gKey=localStorage.getItem('gemini_key')||'';
   const abk=abkLoad();
   document.getElementById('mc').innerHTML=`
@@ -1892,8 +2217,8 @@ function rSettings(){
   </div>
   <div class="scard">
     <div class="st">💾 Sao lưu dữ liệu</div>
-    <div class="ss">Tải file JSON chứa <b>toàn bộ</b> dữ liệu: dân cư + danh sách BHYT + cài đặt.</div>
-    <div style="font-size:12px;color:var(--text2);background:var(--bg3);padding:8px 10px;border-radius:7px;margin-bottom:10px;font-family:'JetBrains Mono',monospace">📦 ${R.length} dân cư · 🏥 ${BHYT_LIST.length} BHYT · ~${sz} KB</div>
+    <div class="ss">Tải file JSON chứa <b>toàn bộ</b> dữ liệu: dân cư + BHYT + cư trú + cài đặt.</div>
+    <div style="font-size:12px;color:var(--text2);background:var(--bg3);padding:8px 10px;border-radius:7px;margin-bottom:10px;font-family:'JetBrains Mono',monospace">📦 ${R.length} dân cư · 🏥 ${BHYT_LIST.length} BHYT · 🧾 ${CUTRU.length} cư trú · ~${sz} KB</div>
     <button class="btn btn-p" onclick="bakData()" style="width:100%;margin-bottom:7px">⬇️ Tải file sao lưu toàn bộ (.json)</button>
     <button class="btn btn-s sm" onclick="expXls()" style="width:100%">📊 Xuất Excel dân cư</button>
   </div>
@@ -1953,7 +2278,7 @@ function rSettings(){
   </div>
   <div class="scard">
     <div class="st">ℹ️ Thông tin</div>
-    <div class="srow"><div class="sit">Phiên bản</div><span style="font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--ac)">3.2.0</span></div>
+    <div class="srow"><div class="sit">Phiên bản</div><span style="font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--ac)">3.3.0</span></div>
     <div class="srow"><div class="sit">Tổng bản ghi</div><span style="font-family:'JetBrains Mono',monospace;font-size:12px">${R.length}</span></div>
     <div class="srow"><div class="sit">Dung lượng</div><span style="font-family:'JetBrains Mono',monospace;font-size:12px">~${sz} KB</span></div>
     <div class="srow"><div class="sit">Bảo mật</div><span style="font-size:12px;color:${ENC_ON?'var(--ok)':'var(--ac3)'}">${ENC_ON?'🔐 Mã hóa AES-256 ✓':'🔓 Chưa mã hóa'}</span></div>
@@ -2173,6 +2498,7 @@ async function _lockUnlock(){
     await _dec(sec.verifier,key);               // sai mật khẩu sẽ ném lỗi
     CK=key;ENC_ON=true;
     R=await _readStore(SK);BHYT_LIST=await _readStore(BHYT_SK);
+    CUTRU=await _readStore(CUTRU_SK);
     TRASH=await _readStore(TRASH_SK);LOG=await _readStore(LOG_SK);
     hideLock();rP();T('Đã mở khóa','success');
   }catch(e){
@@ -2192,6 +2518,7 @@ async function _lockConfirm(){
     const verifier=await _enc({ok:'DANCU',t:Date.now()});
     localStorage.setItem(SEC_KEY,JSON.stringify({v:1,salt:_b64(salt),verifier}));
     await _persist(SK,()=>R);await _persist(BHYT_SK,()=>BHYT_LIST);
+    await _persist(CUTRU_SK,()=>CUTRU);await _persist(TRASH_SK,()=>TRASH);await _persist(LOG_SK,()=>LOG);
     hideLock();if(cv==='settings')rSettings();
     T('Đã bật mã hóa & lưu dữ liệu an toàn','success');
   }catch(e){msg.className='lock-msg lock-err';msg.textContent='Lỗi: '+e.message;}
@@ -2209,6 +2536,8 @@ async function disableEncryption(){
   if(!confirm('Tắt mã hóa? Dữ liệu sẽ được lưu KHÔNG mã hóa trên máy này.'))return;
   ENC_ON=false;CK=null;localStorage.removeItem(SEC_KEY);
   localStorage.setItem(SK,JSON.stringify(R));localStorage.setItem(BHYT_SK,JSON.stringify(BHYT_LIST));
+  localStorage.setItem(CUTRU_SK,JSON.stringify(CUTRU));
+  localStorage.setItem(TRASH_SK,JSON.stringify(TRASH));localStorage.setItem(LOG_SK,JSON.stringify(LOG));
   if(cv==='settings')rSettings();T('Đã tắt mã hóa','warning');
 }
 async function changePassword(){
@@ -2224,6 +2553,7 @@ async function changePassword(){
   const verifier=await _enc({ok:'DANCU',t:Date.now()});
   localStorage.setItem(SEC_KEY,JSON.stringify({v:1,salt:_b64(salt),verifier}));
   await _persist(SK,()=>R);await _persist(BHYT_SK,()=>BHYT_LIST);
+  await _persist(CUTRU_SK,()=>CUTRU);await _persist(TRASH_SK,()=>TRASH);await _persist(LOG_SK,()=>LOG);
   T('Đã đổi mật khẩu','success');
 }
 
@@ -2232,7 +2562,7 @@ async function bootApp(){
   scheduleAutoBak();                 // bật bộ hẹn giờ tự động sao lưu (chỉ chạy nếu đã bật)
   setTimeout(abkTick,8000);          // kiểm tra sao lưu trễ hạn sau khi mở app
   if(localStorage.getItem(SEC_KEY)){ ENC_ON=true; CK=null; showLock('unlock'); }
-  else { ld(); loadBhyt(); loadTrashLogSync(); rP(); }
+  else { ld(); loadBhyt(); loadCutru(); loadTrashLogSync(); rP(); }
 }
 
 // ============================================================ CRUD
@@ -2301,7 +2631,7 @@ function procF(file,mode){
     try{
       const wb=XLSX.read(e.target.result,{type:'binary'});
       const ws=wb.Sheets[wb.SheetNames[0]];
-      const rows=XLSX.utils.sheet_to_json(ws,{defval:'',raw:false});
+      const rows=sheetToObjects(ws,resolveCol);
       if(!rows.length){T('File không có dữ liệu','error');return}
 
       const cMap={};
@@ -2707,7 +3037,7 @@ function procBhyt(file){
     try{
       const wb=XLSX.read(e.target.result,{type:'binary'});
       const ws=wb.Sheets[wb.SheetNames[0]];
-      const rows=XLSX.utils.sheet_to_json(ws,{defval:'',raw:false});
+      const rows=sheetToObjects(ws,resolveBhytCol);
       if(!rows.length){T('File không có dữ liệu','error');return}
 
       // Map columns
@@ -2809,7 +3139,7 @@ function procBhyt(file){
           <td style="padding:5px 8px;font-size:10px;white-space:nowrap;color:${p.ok?'var(--ok)':p.isNew?'var(--ac2)':'var(--dg)'}">
             ${p.ok?'✓ Ghép: '+H(p.khop):p.isNew?'➕ Thêm mới':'✗ Lỗi'}
           </td>
-          ${p.ok&&p.tenDC&&p.tenDC!==p.ten?`<td style="padding:5px 8px;font-size:10px;color:var(--text3)" title="${H(p.tenDC)}">→ ${H(p.tenDC.substring(0,18))}${p.tenDC.length>18?'...':''}</td>`:'<td style="padding:5px 8px;font-size:10px;color:var(--text3)">${p.isNew?"(bản ghi mới)":""}</td>'}
+          ${p.ok&&p.tenDC&&p.tenDC!==p.ten?`<td style="padding:5px 8px;font-size:10px;color:var(--text3)" title="${H(p.tenDC)}">→ ${H(p.tenDC.substring(0,18))}${p.tenDC.length>18?'...':''}</td>`:`<td style="padding:5px 8px;font-size:10px;color:var(--text3)">${p.isNew?'(bản ghi mới)':''}</td>`}
         </tr>`).join('');
 
       document.getElementById('ir-bhyt').innerHTML=`
@@ -2870,9 +3200,10 @@ function dlTpl(){
 function _backupPayload(){
   return {
     app:'QuanLyDanCu', version:3, date:new Date().toISOString(),
-    counts:{records:R.length, bhyt:BHYT_LIST.length},
+    counts:{records:R.length, bhyt:BHYT_LIST.length, cutru:CUTRU.length},
     records:R,
     bhyt:BHYT_LIST,
+    cutru:CUTRU,
     settings:{ theme:localStorage.getItem('dc_theme')||'dark', gemini_key:localStorage.getItem('gemini_key')||'' }
   };
 }
@@ -2992,20 +3323,21 @@ function resData(e){
       const recs=Array.isArray(d.records)?d.records:(Array.isArray(d)?d:null);
       if(!recs) throw new Error('File không hợp lệ');
       const bh=Array.isArray(d.bhyt)?d.bhyt:[];
+      const ct=Array.isArray(d.cutru)?d.cutru:[];
       const when=d.date?` (sao lưu lúc ${new Date(d.date).toLocaleString('vi')})`:'';
-      if(!confirm(`Phục hồi ${recs.length} dân cư + ${bh.length} BHYT${when}?\nToàn bộ dữ liệu hiện tại sẽ bị thay thế!`))return;
-      R=recs; BHYT_LIST=bh;
+      if(!confirm(`Phục hồi ${recs.length} dân cư + ${bh.length} BHYT + ${ct.length} cư trú${when}?\nToàn bộ dữ liệu hiện tại sẽ bị thay thế!`))return;
+      R=recs; BHYT_LIST=bh; CUTRU=ct;
       if(d.settings&&d.settings.gemini_key) localStorage.setItem('gemini_key',d.settings.gemini_key);
-      sv(); saveBhyt(); rP(); logAct('Phục hồi từ sao lưu', R.length+' dân cư + '+BHYT_LIST.length+' BHYT');
-      T(`Đã phục hồi ${R.length} dân cư + ${BHYT_LIST.length} BHYT`,'success');
+      sv(); saveBhyt(); saveCutru(); rP(); logAct('Phục hồi từ sao lưu', R.length+' dân cư + '+BHYT_LIST.length+' BHYT + '+CUTRU.length+' cư trú');
+      T(`Đã phục hồi ${R.length} dân cư + ${BHYT_LIST.length} BHYT + ${CUTRU.length} cư trú`,'success');
     }catch(err){T('Lỗi phục hồi: '+err.message,'error')}
   };
   rd.readAsText(file);e.target.value='';
 }
 function clrAll(){
-  if(!confirm('Xóa TOÀN BỘ dữ liệu (dân cư + BHYT)?\nHành động này KHÔNG THỂ hoàn tác!'))return;
-  logAct('Xóa tất cả dữ liệu', R.length+' dân cư + '+BHYT_LIST.length+' BHYT');
-  R=[];BHYT_LIST=[];sv();saveBhyt();rP();T('Đã xóa toàn bộ dữ liệu','warning');
+  if(!confirm('Xóa TOÀN BỘ dữ liệu (dân cư + BHYT + cư trú)?\nHành động này KHÔNG THỂ hoàn tác!'))return;
+  logAct('Xóa tất cả dữ liệu', R.length+' dân cư + '+BHYT_LIST.length+' BHYT + '+CUTRU.length+' cư trú');
+  R=[];BHYT_LIST=[];CUTRU=[];sv();saveBhyt();saveCutru();rP();T('Đã xóa toàn bộ dữ liệu','warning');
 }
 
 // ============================================================ HELPERS
@@ -3025,7 +3357,7 @@ function clrF(){
 }
 function oSort(f){if(sf===f)sd*=-1;else{sf=f;sd=1};if(cv==='list')_renderTableOnly();else rP()}
 function gPg(p){cpg=p;if(cv==='list')_renderTableOnly();else rP();document.getElementById('mc').scrollTo({top:0,behavior:'smooth'})}
-function H(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')}
+function H(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;')}
 function om(id){document.getElementById(id).classList.add('open')}
 function cm(id){document.getElementById(id).classList.remove('open')}
 function osb(){document.getElementById('sidebar').classList.add('open');document.getElementById('sb-ov').classList.add('open')}
@@ -3042,6 +3374,8 @@ function uB(){
   document.getElementById('nb-g').textContent=new Set(R.map(r=>r.maHo).filter(Boolean)).size;
   const nbBh=document.getElementById('nb-bh');
   if(nbBh) nbBh.textContent=BHYT_LIST.length;
+  const nbCt=document.getElementById('nb-ct');
+  if(nbCt) nbCt.textContent=CUTRU.length;
   const nbTr=document.getElementById('nb-trash');
   if(nbTr) nbTr.textContent=TRASH.length;
   document.getElementById('sb-info').textContent=R.length+' bản ghi';
@@ -3825,7 +4159,7 @@ if(document.readyState==='loading') document.addEventListener('DOMContentLoaded'
     </div>
     <div class="mf" id="scan-foot">
       <button class="btn btn-s" onclick="cm('m-scan')">Đóng</button>
-      <button class="btn btn-p" onclick="startScan()">🔍 Bắt đầu quét</button>
+      <button class="btn btn-p" onclick="runScan()">🔍 Bắt đầu quét</button>
     </div>
   </div>
 </div>
@@ -3875,6 +4209,76 @@ if(document.readyState==='loading') document.addEventListener('DOMContentLoaded'
       <button class="xb" onclick="cm('m-log')">×</button>
     </div>
     <div class="mb" id="log-body"></div>
+  </div>
+</div>
+
+<!-- MODAL: CƯ TRÚ ADD/EDIT -->
+<div class="mover" id="m-ct-form">
+  <div class="modal msm">
+    <div class="mh"><h2 id="ct-form-title">Thêm bản ghi cư trú</h2><button class="xb" onclick="cm('m-ct-form')">×</button></div>
+    <div class="mb">
+      <form id="ct-form" onsubmit="return false">
+        <div class="fgrid">
+          <div class="fg"><label class="fl">STT</label><input class="fi" name="tt" placeholder="1"></div>
+          <div class="fg fs2"><label class="fl">Họ tên *</label><input class="fi" name="hoTen" placeholder="Nguyễn Văn A" required></div>
+          <div class="fg"><label class="fl">Ngày sinh</label><input class="fi" name="ngaySinh" placeholder="DD/MM/YYYY"></div>
+          <div class="fg"><label class="fl">Giới tính</label><select class="fsel" name="gioiTinh"><option value="">--</option><option>Nam</option><option>Nữ</option></select></div>
+          <div class="fg"><label class="fl">Số CMND/CCCD</label><input class="fi" name="soCMND" placeholder="012345678901"></div>
+          <div class="fg"><label class="fl">Dân tộc</label><input class="fi" name="danToc" placeholder="Kinh, Khmer..."></div>
+          <div class="fg fs3"><label class="fl">Thường trú</label><input class="fi" name="thuongTru" placeholder="Địa chỉ đăng ký thường trú"></div>
+          <div class="fg fs3"><label class="fl">Tạm trú</label><input class="fi" name="tamTru" placeholder="Địa chỉ tạm trú (nếu có)"></div>
+          <div class="fg fs3"><label class="fl">Nơi ở hiện tại</label><input class="fi" name="noiOHienTai" placeholder="Địa chỉ nơi ở hiện tại"></div>
+        </div>
+      </form>
+    </div>
+    <div class="mf">
+      <button class="btn btn-s" onclick="cm('m-ct-form')">Hủy</button>
+      <button class="btn btn-p" onclick="saveCutruRecord()">💾 Lưu</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: CƯ TRÚ DETAIL -->
+<div class="mover" id="m-ct-det">
+  <div class="modal mlg">
+    <div class="mh">
+      <h2 id="ct-det-title">Chi tiết cư trú</h2>
+      <div style="display:flex;gap:5px;margin-left:auto;margin-right:8px">
+        <button class="btn btn-s sm" id="ct-det-edit">✏️ Sửa</button>
+        <button class="btn btn-d sm" id="ct-det-del">🗑 Xóa</button>
+      </div>
+      <button class="xb" onclick="cm('m-ct-det')">×</button>
+    </div>
+    <div class="mb" id="ct-det-body"></div>
+  </div>
+</div>
+
+<!-- MODAL: CƯ TRÚ IMPORT -->
+<div class="mover" id="mi-ct">
+  <div class="modal msm">
+    <div class="mh"><h2>📂 Nhập danh sách cư trú</h2><button class="xb" onclick="cm('mi-ct')">×</button></div>
+    <div class="mb">
+      <div class="dz" id="dz-ct"
+        onclick="document.getElementById('fi-ct').click()"
+        ondrop="(function(ev){ev.preventDefault();document.getElementById('dz-ct').classList.remove('over');const f=ev.dataTransfer.files[0];if(f)procCutru(f)})(event)"
+        ondragover="event.preventDefault();this.classList.add('over')"
+        ondragleave="this.classList.remove('over')">
+        <div class="dz-ico">🧾</div>
+        <div class="dz-t">Kéo thả hoặc click chọn file Excel</div>
+        <div class="dz-s">.xlsx, .xls — STT · Họ tên · Ngày sinh · Giới tính · CMND/CCCD · Dân tộc · Thường trú · Tạm trú · Nơi ở hiện tại</div>
+      </div>
+      <input type="file" id="fi-ct" accept=".xlsx,.xls" style="display:none"
+        onchange="procCutru(this.files[0]);this.value=''">
+      <div class="ihm" style="margin-top:10px">
+        <b>🤖 Nhập thông minh:</b> Tự động nhận diện cột, tên cột không cần chính xác hoặc đúng thứ tự.<br><br>
+        <b>🔍 Kiểm tra trùng:</b> Theo <b>Họ tên + Số CMND/CCCD</b>. Bản ghi trùng sẽ bỏ qua.
+      </div>
+      <div id="ir-ct"></div>
+    </div>
+    <div class="mf">
+      <button class="btn btn-s sm" onclick="dlTplCutru()">⬇️ Tải template</button>
+      <button class="btn btn-s sm" onclick="cm('mi-ct')">Đóng</button>
+    </div>
   </div>
 </div>
 
